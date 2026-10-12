@@ -55,6 +55,8 @@ uv run job-hunter report                   # ранжированный отчё
 uv run job-hunter web                      # UI: http://127.0.0.1:8777
 ```
 
+Или двойной клик по `Job Hunter.command` в Finder — поднимает UI и планировщик (подробности в [`docs/OPERATIONS.md`](docs/OPERATIONS.md)).
+
 Ключи источников (опционально, бесплатно): hh — `.env` `JOB_HUNTER_HH_CLIENT_ID/SECRET` (заявка на dev.hh.ru); SuperJob — `JOB_HUNTER_SJ_SECRET_KEY` (api.superjob.ru/register, без модерации).
 
 ## Приватность (архитектурное требование, не настройка)
@@ -82,6 +84,7 @@ uv run pytest              # 60 тестов
 | [PLAN.md](PLAN.md) | архитектура, роадмап (этапы M0–M4), журнал решений с датами |
 | [docs/SOURCES.md](docs/SOURCES.md) | живой реестр источников: статусы + даты эмпирических проверок |
 | [docs/UI_SCENARIOS.md](docs/UI_SCENARIOS.md) | сценарии UI (исследование аналогов → интервью → IA → модель воронки) |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | запуск иконкой, автостарт и остановка сервиса |
 | [AGENTS.md](AGENTS.md) | команды и конвенции для разработчиков/агентов |
 
 ## Роадмап

@@ -35,6 +35,7 @@ from job_hunter.domain.profile import CandidateProfile, ScoringConfig
 from job_hunter.infrastructure.config import load_scoring_config
 from job_hunter.infrastructure.db.engine import session_scope
 from job_hunter.infrastructure.db.repositories import (
+    SqlFetchRunRepository,
     SqlLlmCacheRepository,
     SqlStateRepository,
     SqlVacancyRepository,
@@ -143,8 +144,13 @@ def _register(app: FastAPI, ctx: AppContext, templates: Jinja2Templates) -> None
             unvetted_count = 0
         with _session() as session:
             repo = SqlVacancyRepository(session)
+            run_repo = SqlFetchRunRepository(session)
             sources = [
-                (r.name, repo.count(source=r.name))
+                {
+                    "name": r.name,
+                    "count": repo.count(source=r.name),
+                    "last_fetch": _last_fetch_age(r.name, run_repo, now=datetime.now(UTC)),
+                }
                 for r in ctx.connectors
                 if r.enabled and r.connector.is_available()
             ]
@@ -156,7 +162,7 @@ def _register(app: FastAPI, ctx: AppContext, templates: Jinja2Templates) -> None
                 "days": days,
                 "total_today": len(fresh),
                 "unvetted_count": unvetted_count,
-                "total_in_base": sum(n for _, n in sources),
+                "total_in_base": sum(s["count"] for s in sources),
                 "sources": sources,
                 "has_profile": profile is not None,
                 "reports": sorted(_reports_dir.glob("report-*.md"), reverse=True)[:5],
@@ -413,6 +419,17 @@ def _register(app: FastAPI, ctx: AppContext, templates: Jinja2Templates) -> None
         with _session() as session:
             SqlStateRepository(session).unhide_employer(name)
         return _back(next, default="/employers")
+
+
+def _last_fetch_age(source: str, run_repo: SqlFetchRunRepository, *, now: datetime) -> str:
+    """Возвращает человекочитаемый возраст последнего успешного сбора источника."""
+    last = run_repo.get_all().get(source)
+    if last is None:
+        return "—"
+    hours = max(0, int((now - last).total_seconds() // 3600))
+    if hours < 1:
+        return "<1 ч назад"
+    return f"{hours} ч назад"
 
 
 def _record_view(record: VacancyRecord, state: VacancyState | None = None) -> dict[str, Any]:

@@ -68,3 +68,14 @@ class HiddenEmployerRow(Base):
 
     employer_name: Mapped[str] = mapped_column(String(256), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class FetchRunRow(Base):
+    """Время последнего успешного сбора по источнику (для catch-up и индикации возраста)."""
+
+    __tablename__ = "fetch_runs"
+
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_status: Mapped[str] = mapped_column(String(16))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

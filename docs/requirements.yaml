@@ -148,10 +148,13 @@ requirements:
       - "Если прошло больше порога (дефолт 3 ч), запускается догоняющий сбор; иначе — ничего не запускается."
       - Пропущенный запуск не создаёт дублей и не ломает расписание; результат фиксируется в логе и на странице источников.
     priority: must
-    status: accepted
+    status: done
     release: v0.4.0
     traces: [F1, C5]
-    tests: []
+    tests:
+      - tests/test_catchup.py::test_fr_008_overdue_boundaries
+      - tests/test_catchup.py::test_fr_008_fetch_run_repository
+      - tests/test_catchup.py::test_fr_008_catchup_no_duplicates
     notes: "Критично для сценария F1 «включил Mac позже 09:00»; дополняет APScheduler misfire_grace_time+coalesce"
 
   - id: FR-009
@@ -181,10 +184,12 @@ requirements:
       - Повторный запуск не ломает уже работающий процесс (идемпотентность) и не создаёт второй экземпляр.
       - Документирован способ автостарта при логине (launchd-агент) и способ остановки.
     priority: must
-    status: accepted
+    status: done
     release: v0.4.0
     traces: [F1, C5]
-    tests: []
+    tests:
+      - tests/test_launch.py::test_fr_010_launch_idempotent_when_server_running
+      - tests/test_launch.py::test_fr_010_launch_starts_web_when_server_missing
     notes: "«Иконка и клик» — требование владельца 13.10; связка с FR-008 (catch-up делает поздний старт безопасным)"
 
   - id: FR-011

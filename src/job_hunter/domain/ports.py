@@ -78,6 +78,16 @@ class LLMCache(Protocol):
     def set(self, key: str, *, role: str, model: str, output: str) -> None: ...
 
 
+class FetchRunRepository(Protocol):
+    """Порт хранения времени последнего успешного сбора по источнику."""
+
+    def get_all(self) -> dict[str, datetime]: ...
+
+    def record_success(self, source: str, when: datetime) -> None: ...
+
+    def record_failure(self, source: str, when: datetime, reason: str) -> None: ...
+
+
 class StateRepository(Protocol):
     """Порт состояния вакансий в воронке кандидата и скрытых работодателей."""
 

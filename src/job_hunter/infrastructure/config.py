@@ -53,6 +53,7 @@ class SchedulerSettings(BaseModel):
     fetch_times: list[str] = Field(default_factory=lambda: ["09:00", "18:00"])  # локальное время
     triage_after_fetch: bool = True
     triage_pool_limit: int = 40
+    catch_up_hours: float = 3.0  # FR-008: порог догоняющего сбора
 
 
 class Settings(BaseSettings):

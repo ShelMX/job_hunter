@@ -5,7 +5,7 @@
 {% if unvetted_count > 0 %}
 <p class="muted">Скрыто непроверенных триажем: {{ unvetted_count }} — <a href="/?days={{ days }}&unvetted=1">показать и их</a> (триаж: <code>job-hunter triage</code> или планировщик)</p>
 {% endif %}
-<p class="muted">Источники: {% for name, n in sources %}{{ name }}: {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+<p class="muted">Источники: {% for s in sources %}{{ s.name }}: {{ s.count }} <span class="muted">(последний сбор: {{ s.last_fetch }})</span>{% if not loop.last %} · {% endif %}{% endfor %}</p>
 <form method="get" class="filters">
   <label>Дней свежести: <input type="number" name="days" value="{{ days }}" min="1" max="30" style="width:5em"></label>
   <button>Показать</button>

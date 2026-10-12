@@ -1,17 +1,20 @@
 """CLI (Typer + rich)."""
 
 import logging
+import webbrowser
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
+import httpx
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 from job_hunter.application.analyze import Assessment, VacancyAnalyzer
+from job_hunter.application.catchup import run_catchup
 from job_hunter.application.dedup import find_duplicate_clusters
 from job_hunter.application.ingest import FetchStats, IngestVacancies
 from job_hunter.application.llm_pipeline import enrich_with_llm
@@ -24,7 +27,11 @@ from job_hunter.domain.profile import CandidateProfile
 from job_hunter.infrastructure.config import load_scoring_config
 from job_hunter.infrastructure.db.engine import session_scope
 from job_hunter.infrastructure.db.migrate import upgrade_head
-from job_hunter.infrastructure.db.repositories import SqlLlmCacheRepository, SqlVacancyRepository
+from job_hunter.infrastructure.db.repositories import (
+    SqlFetchRunRepository,
+    SqlLlmCacheRepository,
+    SqlVacancyRepository,
+)
 from job_hunter.infrastructure.llm import build_llm
 from job_hunter.infrastructure.llm.ollama import OllamaLLM
 from job_hunter.infrastructure.logging import setup_logging
@@ -113,6 +120,7 @@ def fetch(
 ) -> None:
     """Собрать вакансии из включённых источников в локальную базу."""
     ctx = _prepare(verbose)
+    run_catchup(ctx)  # FR-008: fetch тоже считается стартом
     connectors = [r.connector for r in ctx.connectors if r.enabled and (source is None or r.name == source)]
     if not connectors:
         console.print("[red]Нет подходящих источников[/red] — смотрите `job-hunter sources list`")
@@ -121,10 +129,13 @@ def fetch(
     all_stats: list[tuple[str, FetchStats]] = []
     with session_scope(ctx.engine) as session:
         use_case = IngestVacancies(connectors, SqlVacancyRepository(session))
+        run_repo = SqlFetchRunRepository(session)
         for one_query in _fetch_queries(ctx, query):
             label = one_query or "(широкий)"
             logger.info("Запрос: %s", label)
-            for stat in use_case.execute(source_name=source, query=one_query, limit=limit):
+            for stat in use_case.execute(
+                source_name=source, query=one_query, limit=limit, fetch_run_repo=run_repo
+            ):
                 all_stats.append((label, stat))
 
     table = Table(title="Результат сбора")
@@ -547,20 +558,13 @@ def clusters(verbose: VerboseOption = False) -> None:
     ctx.close()
 
 
-@app.command("web")
-def web_ui(
-    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
-    port: Annotated[int, typer.Option("--port")] = 8777,
-    no_scheduler: Annotated[bool, typer.Option("--no-scheduler", help="Без фоновых сборов")] = False,
-    verbose: VerboseOption = False,
-) -> None:
-    """Локальный web UI: дайджест, вакансии, воронка, кластеры, отчёты. Только localhost."""
+def _start_web(ctx: AppContext, host: str, port: int, *, no_scheduler: bool, verbose: bool) -> None:
+    """Общая логика поднятия web + планировщик (используется web и launch)."""
     import uvicorn
 
     from job_hunter.infrastructure.scheduler import start_scheduler
     from job_hunter.presentation.web.app import create_app
 
-    ctx = _prepare(verbose)
     scheduler = None if no_scheduler else start_scheduler(ctx)
     console.print(f"[green]UI:[/green] http://{host}:{port}  (дайджест — '/'; выход: Ctrl+C)")
     try:
@@ -569,6 +573,44 @@ def web_ui(
         if scheduler:
             scheduler.shutdown(wait=False)
         ctx.close()
+
+
+@app.command("web")
+def web_ui(
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 8777,
+    no_scheduler: Annotated[bool, typer.Option("--no-scheduler", help="Без фоновых сборов")] = False,
+    verbose: VerboseOption = False,
+) -> None:
+    """Локальный web UI: дайджест, вакансии, воронка, кластеры, отчёты. Только localhost."""
+    ctx = _prepare(verbose)
+    _start_web(ctx, host, port, no_scheduler=no_scheduler, verbose=verbose)
+
+
+@app.command("launch")
+def launch(
+    port: Annotated[int, typer.Option("--port")] = 8777,
+    no_scheduler: Annotated[bool, typer.Option("--no-scheduler", help="Без фоновых сборов")] = False,
+    verbose: VerboseOption = False,
+) -> None:
+    """Запуск одной иконкой (FR-010): если сервис уже работает — открыть браузер, иначе поднять web."""
+    url = f"http://127.0.0.1:{port}/"
+    if _server_alive(port):
+        webbrowser.open(url)
+        console.print(f"[green]Уже работает[/green]: {url} — открываю браузер")
+        return
+
+    ctx = _prepare(verbose)
+    _start_web(ctx, "127.0.0.1", port, no_scheduler=no_scheduler, verbose=verbose)
+
+
+def _server_alive(port: int, timeout: float = 1.0) -> bool:
+    """Короткая проверка: отвечает ли localhost:{port}/."""
+    try:
+        response = httpx.get(f"http://127.0.0.1:{port}/", timeout=timeout)
+        return response.status_code == 200
+    except Exception:
+        return False
 
 
 def main() -> None:

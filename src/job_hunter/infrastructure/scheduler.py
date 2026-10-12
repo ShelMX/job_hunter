@@ -9,15 +9,21 @@ from datetime import UTC, datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 
 from job_hunter.application.analyze import Assessment
+from job_hunter.application.catchup import run_catchup
 from job_hunter.application.ingest import IngestVacancies
 from job_hunter.application.llm_pipeline import _key
 from job_hunter.application.llm_triage import triage_batch
 from job_hunter.bootstrap import AppContext
 from job_hunter.domain.profile import CandidateProfile
 from job_hunter.infrastructure.db.engine import session_scope
-from job_hunter.infrastructure.db.repositories import SqlLlmCacheRepository, SqlVacancyRepository
+from job_hunter.infrastructure.db.repositories import (
+    SqlFetchRunRepository,
+    SqlLlmCacheRepository,
+    SqlVacancyRepository,
+)
 from job_hunter.infrastructure.llm import build_llm
 from job_hunter.infrastructure.profile import load_profile
 
@@ -38,9 +44,23 @@ def start_scheduler(ctx: AppContext) -> BackgroundScheduler | None:
             args=[ctx],
             id=f"fetch-{hh_mm}",
             replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=True,
         )
+    # FR-008: одноразовый catch-up при старте — не блокирует поднятие UI
+    scheduler.add_job(
+        run_catchup,
+        DateTrigger(),
+        args=[ctx],
+        id="catchup-startup",
+        replace_existing=True,
+    )
     scheduler.start()
-    logger.info("Планировщик запущен: сборы в %s (локальное время)", ", ".join(cfg.fetch_times))
+    logger.info(
+        "Планировщик запущен: сборы в %s (локальное время); catch-up порог %.1f ч",
+        ", ".join(cfg.fetch_times),
+        cfg.catch_up_hours,
+    )
     return scheduler
 
 
@@ -55,8 +75,9 @@ def _fetch_and_triage(ctx: AppContext) -> None:
 
     with session_scope(ctx.engine) as session:
         use_case = IngestVacancies(connectors, SqlVacancyRepository(session))
+        run_repo = SqlFetchRunRepository(session)
         for query in queries:
-            for stat in use_case.execute(query=query, limit=100):
+            for stat in use_case.execute(query=query, limit=100, fetch_run_repo=run_repo):
                 logger.info(
                     "Планировщик fetch [%s/%s]: получено %d (новых %d)",
                     stat.source,

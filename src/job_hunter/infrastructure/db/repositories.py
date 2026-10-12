@@ -21,6 +21,7 @@ from job_hunter.domain.models import (
     VacancyStatus,
 )
 from job_hunter.infrastructure.db.orm import (
+    FetchRunRow,
     HiddenEmployerRow,
     LLMCacheRow,
     VacancyRow,
@@ -254,6 +255,74 @@ class SqlStateRepository:
 
     def hidden_employers(self) -> set[str]:
         return {row.employer_name for row in self._session.execute(select(HiddenEmployerRow)).scalars()}
+
+
+class SqlFetchRunRepository:
+    """Реализация FetchRunRepository поверх SQLAlchemy."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def get_all(self) -> dict[str, datetime]:
+        out: dict[str, datetime] = {}
+        for row in self._session.execute(select(FetchRunRow)).scalars():
+            last = row.last_success_at
+            if last is not None:
+                out[row.source] = last.replace(tzinfo=UTC) if last.tzinfo is None else last
+        return out
+
+    def record_success(self, source: str, when: datetime) -> None:
+        self._upsert(source, last_success_at=when, last_status="success", updated_at=when)
+
+    def record_failure(self, source: str, when: datetime, reason: str) -> None:
+        """Провал обновляет статус, но НЕ стирает факт последнего успеха (иначе catch-up зациклится)."""
+        row = self._session.get(FetchRunRow, source)
+        if row is None:
+            row = FetchRunRow(
+                source=source,
+                last_success_at=None,
+                last_status=_status(reason),
+                updated_at=when,
+            )
+            self._session.add(row)
+        else:
+            row.last_status = _status(reason)
+            row.updated_at = when
+
+    def _upsert(
+        self,
+        source: str,
+        *,
+        last_success_at: datetime | None,
+        last_status: str,
+        updated_at: datetime,
+    ) -> None:
+        row = self._session.get(FetchRunRow, source)
+        if row is None:
+            row = FetchRunRow(
+                source=source,
+                last_success_at=last_success_at,
+                last_status=last_status,
+                updated_at=updated_at,
+            )
+            self._session.add(row)
+        else:
+            row.last_success_at = last_success_at
+            row.last_status = last_status
+            row.updated_at = updated_at
+        self._session.flush()
+
+
+def _status(reason: str) -> str:
+    """Сжимаем причину до 16 символов, чтобы уместиться в колонку last_status."""
+    normalized = reason.strip().lower()
+    if "credentials" in normalized or "ключ" in normalized or "токен" in normalized:
+        return "no_credentials"
+    if "ошибка" in normalized or "error" in normalized or "упал" in normalized:
+        return "error"
+    if "timeout" in normalized or "таймаут" in normalized:
+        return "timeout"
+    return reason[:16] if len(reason) <= 16 else "skipped"
 
 
 def _aware(value: datetime | None) -> datetime | None:
