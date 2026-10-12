@@ -3,8 +3,8 @@
   // Правила применяются по порядку, последнее совпавшее побеждает; без совпадений — ask.
   "$schema": "https://opencode.ai/config.json",
   // Головная модель по умолчанию для новых сессий (внутри сессии — команда /models).
-  // Дешёвый daily-driver; тяжёлое — точечно через /models или subagent deepreview.
-  "model": "ollama/gpt-oss:120b-cloud",
+  // Дешёвый daily-driver (~10× дешевле kimi-k3); тяжёлое — точечно: /models или deepreview.
+  "model": "ollama/deepseek-v4.1-flash:cloud",
   "permissions": [
     // === Жёсткие запреты (deny, без вопросов) ===
 
