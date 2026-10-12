@@ -1,0 +1,36 @@
+# Реестр требований Job Hunter (FR = функциональные, NFR = нефункциональные).
+#
+# ЛЕНИВЫЙ ПРОЦЕСС: запись появляется в момент, когда требование становится actionable
+# (Definition of Ready — перед реализацией). Ретро-требования НЕ пишем; при касании
+# старой фичи — дописываем. Как добавлять: .opencode/skills/spec/SKILL.md
+# Валидация: uv run pytest tests/test_requirements_registry.py
+#
+# Поля записи:
+#   id          FR-NNN | NFR-NNN (уникально, неизменно)
+#   title       короткое имя
+#   statement   что система должна делать (одним предложением, проверяемо)
+#   acceptance  список критериев приёмки (каждый — «сделано/не сделано»)
+#   priority    must | should | could
+#   status      proposed | accepted | done | dropped
+#   release     в какой релиз входит (например v0.4.0)
+#   traces      сценарии F* (docs/DISCOVERY.md §5) и ограничения C* (docs/PRODUCT.md §3)
+#   tests       имена тестов (tests/...::test_...) — обязательно для status done
+#   notes       свободные примечания (риски, ссылки на ADR)
+
+schema: 1
+requirements: []
+
+# Пример (раскомментировать при первом реальном требовании):
+# - id: FR-001
+#   title: Watchlist целевых компаний
+#   statement: Система опрашивает доски целевых компаний каждые 3–4 часа и выделяет свежие подходящие вакансии в дайджесте бейджем «🔥 fresh».
+#   acceptance:
+#     - Компания добавляется/убирается в watchlist через UI без правки конфигов вручную.
+#     - Опрос идёт не реже, чем каждые 4 часа, и не чаще лимитов источника.
+#     - Свежая подходящая вакансия из watchlist получает бейдж и попадает в отдельную зону дайджеста.
+#   priority: must
+#   status: proposed
+#   release: v0.4.0
+#   traces: [F2, C2, C3]
+#   tests: []
+#   notes: "Источники досок: Greenhouse/Lever (public JSON), hh employer-id; см. docs/SOURCES.md"
