@@ -1,0 +1,44 @@
+# Источники вакансий. Редактирование этого файла не требует изменения кода.
+habr_career:
+  enabled: true
+  params:
+    max_pages: 5
+
+remoteok:
+  # Выключен 2026-10-12: сервер троттлит отдачу с этой машины (~19 КБ за 90 с).
+  # Коннектор готов и покрыт тестами — включить при нормальной сети.
+  enabled: false
+  params:
+    base_url: "https://remoteok.com/api"
+    timeout_seconds: 120 # источник отдаёт полный список одним ответом и троттлит
+
+hh:
+  enabled: false # API+OAuth: включить после регистрации приложения на https://dev.hh.ru
+  params:
+    base_url: "https://api.hh.ru"
+    per_page: 50
+    # credentials: env JOB_HUNTER_HH_CLIENT_ID / JOB_HUNTER_HH_CLIENT_SECRET
+
+# hh через легальный RSS-фид (без ключей) — основной hh-поток пока нет OAuth
+hh_rss:
+  enabled: true
+  type: rss
+  params:
+    feed_url: "https://hh.ru/search/vacancy/rss"
+    query_param: "text" # запрос уходит серверу
+    item_parser: "hh_ru" # профиль разбора CDATA-описания hh
+    extra_params: { order_by: "publication_time" }
+
+# «Работа в России» — официальный открытый API Роструда (без ключей)
+trudvsem:
+  enabled: true
+  params:
+    base_url: "https://opendata.trudvsem.ru/api/v1"
+
+# SuperJob — официальный API, ключ бесплатно и без модерации: https://api.superjob.ru/register/
+superjob:
+  enabled: true
+  params:
+    base_url: "https://api.superjob.ru/2.0"
+    max_pages: 5
+    # credentials: env JOB_HUNTER_SJ_SECRET_KEY (Secret key приложения)

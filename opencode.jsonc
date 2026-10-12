@@ -1,0 +1,41 @@
+{
+  // Политика доступа агента к проекту Job Hunter.
+  // Правила применяются по порядку, последнее совпавшее побеждает; без совпадений — ask.
+  "$schema": "https://opencode.ai/config.json",
+  "permissions": [
+    // === Жёсткие запреты (deny, без вопросов) ===
+
+    // Любые .env*-файлы: читать и менять запрещено. Исключение — только шаблон .env.example.
+    { "action": "read", "resource": "*.env*", "effect": "deny" },
+    { "action": "read", "resource": "*.env.example", "effect": "allow" },
+    { "action": "edit", "resource": "*.env*", "effect": "deny" },
+    { "action": "edit", "resource": "*.env.example", "effect": "ask" },
+
+    // Персональные данные: резюме/документы не читаем агентом — только приложение (profile import).
+    { "action": "read", "resource": "data/*.pdf", "effect": "deny" },
+    { "action": "read", "resource": "data/*.docx", "effect": "deny" },
+    { "action": "read", "resource": "data/*.doc", "effect": "deny" },
+    { "action": "edit", "resource": "data/*.pdf", "effect": "deny" },
+    { "action": "edit", "resource": "data/*.docx", "effect": "deny" },
+    { "action": "edit", "resource": "data/*.doc", "effect": "deny" },
+
+    // Никаких действий с файлами вне каталога проекта — ни читать, ни писать (жёсткий deny).
+    { "action": "external_directory", "resource": "*", "effect": "deny" },
+
+    // === Подтверждения (ask) ===
+
+    // Веб-запросы — только с явного разрешения.
+    { "action": "webfetch", "resource": "*", "effect": "ask" },
+    { "action": "websearch", "resource": "*", "effect": "ask" },
+
+    // Shell: по умолчанию спрашивать (через shell можно обойти read-deny — поэтому ask).
+    { "action": "shell", "resource": "*", "effect": "ask" },
+
+    // Белый список рутины этого проекта (выполняются без вопросов).
+    { "action": "shell", "resource": "uv run *", "effect": "allow" },
+    { "action": "shell", "resource": "uv sync *", "effect": "allow" },
+    { "action": "shell", "resource": "uv sync", "effect": "allow" },
+    { "action": "shell", "resource": "ls *", "effect": "allow" },
+    { "action": "shell", "resource": "ls", "effect": "allow" }
+  ]
+}

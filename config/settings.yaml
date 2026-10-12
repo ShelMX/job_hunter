@@ -1,0 +1,24 @@
+# Настройки приложения. Любое значение переопределяется переменной окружения JOB_HUNTER_<ИМЯ_ПОЛЯ>.
+database_url: "sqlite:///data/job_hunter.db"
+http_timeout_seconds: 20.0
+http_max_retries: 3
+user_agent: "job-hunter/0.1 (local job-search assistant; contact: local@localhost)"
+
+# LLM (этап M2, только локальные). Политика ресурсов — требование PLAN.md §7.1:
+# не более одной загруженной модели, батч-обработка, явная выгрузка после батча.
+llm:
+  enabled: true              # M2: LLM-слой активен; отключить можно флагом --no-llm
+  primary_base_url: "http://localhost:11434"     # Ollama (нативное API для keep_alive/unload)
+  fallback_base_url: "http://localhost:1234/v1"  # LM Studio (auto-unload по idle 1 мин)
+  models:                    # тиры ролей: от предпочтительной к запасной (по свободной RAM)
+    triage: ["tev1:4b", "qwen3:4b", "gemma2:2b"]   # decision-классификатор подходит/нет
+    extract: ["qwen3:4b", "gemma2:2b"]
+    score: ["gemma3:12b", "qwen3:4b", "gemma2:2b"]
+  resource_policy:
+    concurrency: 1             # строго последовательно, без параллельных LLM-вызовов
+    max_loaded_models: 1       # одновременно в памяти не более одной модели
+    batch_size: 20             # модель живёт в RAM только на время батча
+    keep_alive: "60s"          # резиденция между задачами батча
+    unload_after_batch: true   # Ollama: выгрузка задействованных моделей после батча
+    min_free_ram_gb: 8         # свободно меньше — деградация к меньшей модели
+    lmstudio_unload_via_cli: true  # `lms unload` после батча (auto-unload 1 мин уже настроен в LM Studio)
