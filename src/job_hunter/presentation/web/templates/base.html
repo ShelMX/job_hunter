@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Job Hunter{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav>
+  <strong>🎯 Job Hunter</strong>
+  <a href="/" {{ 'class=active' if request.url.path == '/' }}>Дайджест</a>
+  <a href="/vacancies" {{ 'class=active' if request.url.path == '/vacancies' }}>Вакансии</a>
+  <a href="/pipeline" {{ 'class=active' if request.url.path == '/pipeline' }}>Воронка</a>
+  <a href="/clusters" {{ 'class=active' if request.url.path == '/clusters' }}>Кластеры</a>
+  <a href="/employers" {{ 'class=active' if request.url.path == '/employers' }}>Работодатели</a>
+  <a href="/report" {{ 'class=active' if request.url.path == '/report' }}>Отчёт</a>
+</nav>
+{% if request.query_params.get('msg') %}
+<div class="flash">{{ request.query_params.get('msg') }}</div>
+{% endif %}
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

@@ -29,8 +29,8 @@ def assemble_from_cache(
     for record, assessment in analyzer.assess_all(records):
         # триаж: cache.get → "keep"/"drop"
         if profile is not None:
-            verdict = cache.get(_key("triage", record.content_hash))
-            if verdict == "drop":
+            triage_outcome = cache.get(_key("triage", record.content_hash))
+            if triage_outcome == "drop":
                 continue
 
         signals = list(assessment.signals)
@@ -42,14 +42,17 @@ def assemble_from_cache(
             if extraction.employer_notes:
                 signals.append(Signal("info", 0.0, f"работодатель: {extraction.employer_notes}"))
             if extraction.is_umbrella:
-                signals.append(Signal(
-                    "umbrella", config.penalties.get("umbrella", -8.0),
-                    "вакансия-«зонтик» (LLM)",
-                ))
-        if profile is not None and (
-            verdict_raw := cache.get(_key("score", record.content_hash, fingerprint))
-        ):
-            if verdict := parse_verdict(verdict_raw):
+                signals.append(
+                    Signal(
+                        "umbrella",
+                        config.penalties.get("umbrella", -8.0),
+                        "вакансия-«зонтик» (LLM)",
+                    )
+                )
+        if profile is not None:
+            cached_score = cache.get(_key("score", record.content_hash, fingerprint))
+            verdict = parse_verdict(cached_score) if cached_score else None
+            if verdict is not None:
                 weight = config.weights.get("llm", 15.0)
                 points = round((verdict.fit / 5 * 2 - 1) * weight, 1)
                 signals.append(Signal("llm_fit", points, f"LLM {verdict.fit}/5 — {verdict.verdict}"))

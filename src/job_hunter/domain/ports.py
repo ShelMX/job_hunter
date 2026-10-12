@@ -4,7 +4,7 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Protocol
 
-from job_hunter.domain.models import Vacancy, VacancyRecord
+from job_hunter.domain.models import Vacancy, VacancyRecord, VacancyState, VacancyStatus
 
 
 class SourceConnector(Protocol):
@@ -76,3 +76,26 @@ class LLMCache(Protocol):
     def get(self, key: str) -> str | None: ...
 
     def set(self, key: str, *, role: str, model: str, output: str) -> None: ...
+
+
+class StateRepository(Protocol):
+    """Порт состояния вакансий в воронке кандидата и скрытых работодателей."""
+
+    def set_status(
+        self,
+        record_id: int,
+        status: VacancyStatus,
+        *,
+        applied_at: datetime | None = None,
+        now: datetime | None = None,
+    ) -> None: ...
+
+    def set_note(self, record_id: int, note: str | None, *, now: datetime | None = None) -> None: ...
+
+    def states(self) -> dict[int, VacancyState]: ...
+
+    def hide_employer(self, name: str, *, now: datetime | None = None) -> None: ...
+
+    def unhide_employer(self, name: str) -> None: ...
+
+    def hidden_employers(self) -> set[str]: ...

@@ -1,6 +1,8 @@
 .env
 .venv/
 data/
+# Персональные данные: профиль собирается из резюме — никогда не в репо (см. profile.example.yaml)
+config/profile.yaml
 __pycache__/
 *.pyc
 .pytest_cache/

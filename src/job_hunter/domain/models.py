@@ -20,6 +20,30 @@ class EmploymentType(StrEnum):
     UNKNOWN = "unknown"
 
 
+class VacancyStatus(StrEnum):
+    """Статус вакансии в воронке кандидата (docs/UI_SCENARIOS.md)."""
+
+    NEW = "new"
+    INTERESTED = "interested"
+    HIDDEN = "hidden"
+    APPLIED = "applied"  # отклик отправлен вручную (дата фиксируется)
+    RESPONDED = "responded"  # пришёл ответ работодателя
+    INTERVIEW = "interview"
+    OFFER = "offer"
+    REJECTED = "rejected"
+    ARCHIVED = "archived"
+
+
+# Порядок колонок канбана (новые/скрытые/архивные — вне доски)
+PIPELINE_STATUSES: tuple[VacancyStatus, ...] = (
+    VacancyStatus.INTERESTED,
+    VacancyStatus.APPLIED,
+    VacancyStatus.RESPONDED,
+    VacancyStatus.INTERVIEW,
+    VacancyStatus.OFFER,
+)
+
+
 @dataclass(frozen=True, slots=True)
 class Salary:
     min_amount: int | None = None
@@ -64,3 +88,14 @@ class VacancyRecord:
     last_seen_at: datetime
     times_seen: int
     content_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class VacancyState:
+    """Состояние вакансии в воронке кандидата (по умолчанию — NEW)."""
+
+    record_id: int
+    status: VacancyStatus = VacancyStatus.NEW
+    note: str | None = None
+    applied_at: datetime | None = None  # когда отметили «откликнулся»
+    updated_at: datetime | None = None

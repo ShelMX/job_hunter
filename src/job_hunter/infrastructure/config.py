@@ -46,6 +46,15 @@ class LLMSettings(BaseModel):
     resource_policy: LLMResourcePolicy = Field(default_factory=LLMResourcePolicy)
 
 
+class SchedulerSettings(BaseModel):
+    """Фоновой планировщик внутри web-процесса (APScheduler)."""
+
+    enabled: bool = True
+    fetch_times: list[str] = Field(default_factory=lambda: ["09:00", "18:00"])  # локальное время
+    triage_after_fetch: bool = True
+    triage_pool_limit: int = 40
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="JOB_HUNTER_",
@@ -59,6 +68,7 @@ class Settings(BaseSettings):
     user_agent: str = "job-hunter/0.1 (local job-search assistant)"
     config_dir: Path = DEFAULT_CONFIG_DIR
     llm: LLMSettings = Field(default_factory=LLMSettings)
+    scheduler: SchedulerSettings = Field(default_factory=SchedulerSettings)
 
     # hh.ru OAuth (client credentials) — из env или .env; SecretStr: значение
     # невозможно случайно напечатать в лог/repr/str, извлекается только по месту использования
@@ -113,5 +123,6 @@ def load_scoring_config(config_dir: Path) -> ScoringConfig:
         evergreen_days=int(raw.get("evergreen_days", defaults.evergreen_days)),
         dedup_similarity=float(raw.get("dedup_similarity", defaults.dedup_similarity)),
         repost_similarity=float(raw.get("repost_similarity", defaults.repost_similarity)),
+        cluster_similarity=float(raw.get("cluster_similarity", defaults.cluster_similarity)),
         red_flags=tuple(raw.get("red_flags") or list(defaults.red_flags)),
     )

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -46,4 +46,25 @@ class LLMCacheRow(Base):
     role: Mapped[str] = mapped_column(String(32))
     model: Mapped[str] = mapped_column(String(64))
     output: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class VacancyStateRow(Base):
+    """Воронка кандидата: статус/заметка/дата отклика для вакансии."""
+
+    __tablename__ = "vacancy_states"
+
+    record_id: Mapped[int] = mapped_column(ForeignKey("vacancies.id", ondelete="CASCADE"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(16), default="new")
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class HiddenEmployerRow(Base):
+    """Работодатели, скрытые кандидатом из всех выдач."""
+
+    __tablename__ = "hidden_employers"
+
+    employer_name: Mapped[str] = mapped_column(String(256), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

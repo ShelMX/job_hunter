@@ -1,0 +1,26 @@
+# ПРИМЕР профиля. Свой профиль создайте: `job-hunter profile init` (визард)
+# или `job-hunter profile import data/resume.pdf` (резюме → LLM → профиль).
+# Файл config/profile.yaml — в .gitignore: в репозиторий не попадает.
+desired_roles:
+- Backend-разработчик
+skills:
+- python
+- fastapi
+- postgresql
+skill_aliases:
+  fastapi:
+  - FastAPI
+  postgresql:
+  - postgres
+seniorities:
+- Senior
+- Middle
+locations:
+- Москва
+remote_modes:
+- remote
+salary_min: 250000
+deal_breakers: []
+search_queries:
+- python разработчик
+- python backend

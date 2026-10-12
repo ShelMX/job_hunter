@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Воронка · Job Hunter{% endblock %}
+{% block content %}
+<h1>Воронка откликов</h1>
+<div class="kanban">
+{% for status_key, cards in columns.items() %}
+  <div class="column">
+    <h3>{{ status_ru[status_key] }} <span class="muted">({{ cards | length }})</span></h3>
+    {% for card in cards %}
+    <div class="card">
+      <a href="/vacancies/{{ card.row.id }}"><strong>{{ card.row.title }}</strong></a>
+      <div class="muted">{{ card.row.employer }}</div>
+      <div class="muted small">{{ card.row.salary }} · в базе с {{ card.row.first_seen }}</div>
+      {% if card.row.applied_at %}<div class="small">📨 {{ card.row.applied_at }}</div>{% endif %}
+      {% if card.row.note %}<div class="note small">{{ card.row.note }}</div>{% endif %}
+      <div class="card-actions">
+        {% if card.prev %}
+        <form method="post" action="/vacancies/{{ card.row.id }}/status"><input type="hidden" name="status" value="{{ card.prev.value }}"><input type="hidden" name="next" value="/pipeline"><button title="Назад">←</button></form>
+        {% endif %}
+        {% if card.next %}
+        <form method="post" action="/vacancies/{{ card.row.id }}/status"><input type="hidden" name="status" value="{{ card.next.value }}"><input type="hidden" name="next" value="/pipeline"><button title="Вперёд">→</button></form>
+        {% endif %}
+        <form method="post" action="/vacancies/{{ card.row.id }}/status"><input type="hidden" name="status" value="rejected"><input type="hidden" name="next" value="/pipeline"><button title="Отказ">❌</button></form>
+        <form method="post" action="/vacancies/{{ card.row.id }}/status"><input type="hidden" name="status" value="archived"><input type="hidden" name="next" value="/pipeline"><button title="Архив">🗄</button></form>
+      </div>
+    </div>
+    {% else %}<p class="muted">— пусто —</p>
+    {% endfor %}
+  </div>
+{% endfor %}
+</div>
+{% if graveyard %}
+<h2>Отказы и архив</h2>
+<ul>
+{% for item in graveyard %}
+  <li><a href="/vacancies/{{ item.id }}">{{ item.title }}</a> — {{ item.employer }} ({{ status_ru[item.status] }})</li>
+{% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

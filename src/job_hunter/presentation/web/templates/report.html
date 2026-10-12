@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Отчёт · Job Hunter{% endblock %}
+{% block content %}
+<h1>Ранжирование (в базе {{ total_in_base }}, отбраковано {{ rejected }}, показано {{ ranked | length }})</h1>
+{% if not has_profile %}<p class="flash">Профиль не задан — баллы только по общим правилам.</p>{% endif %}
+<table>
+  <thead><tr><th>#</th><th>Балл</th><th>LLM</th><th>Вакансия</th><th>Компания</th><th>Зарплата</th><th>Дата</th><th>Источник</th><th>Статус</th></tr></thead>
+  <tbody>
+  {% for item in ranked %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td><span class="score {{ 'good' if item.a.total >= 60 else 'mid' if item.a.total >= 40 else 'low' }}">{{ item.a.total }}</span></td>
+    <td>{% for s in item.a.signals if s.name == 'llm_fit' %}<span title="{{ s.reason }}">{{ '%+.0f' % s.points }}</span>{% else %}—{% endfor %}</td>
+    <td><a href="/vacancies/{{ item.row.id }}">{{ item.row.title }}</a></td>
+    <td>{{ item.row.employer }}</td>
+    <td>{{ item.row.salary }}</td>
+    <td>{{ item.row.published }}</td>
+    <td>{{ item.row.source }}</td>
+    <td>{{ status_ru(item.row.status) }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

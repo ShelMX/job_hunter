@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Работодатели · Job Hunter{% endblock %}
+{% block content %}
+<h1>Скрытые работодатели</h1>
+<p class="muted">Скрытые не показываются в дайджесте, списках и отчётах. Скрыть можно из карточки вакансии.</p>
+<ul>
+{% for name in hidden %}
+  <li>
+    {{ name }}
+    <form method="post" action="/employers/unhide" class="inline">
+      <input type="hidden" name="name" value="{{ name }}"><button>Вернуть</button>
+    </form>
+  </li>
+{% else %}
+  <li class="muted">Скрытых нет.</li>
+{% endfor %}
+</ul>
+{% endblock %}

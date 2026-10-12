@@ -57,6 +57,7 @@ class ScoringConfig:
     evergreen_days: int = 30
     dedup_similarity: float = 96.0
     repost_similarity: float = 90.0
+    cluster_similarity: float = 75.0  # порог страницы /clusters (смежные роли ниже, чем дедуп)
     red_flags: tuple[str, ...] = (
         "молодая динамичная команда",
         "молодой коллектив",

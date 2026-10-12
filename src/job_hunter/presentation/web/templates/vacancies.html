@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Вакансии · Job Hunter{% endblock %}
+{% block content %}
+<h1>Вакансии ({{ total }})</h1>
+<form method="get" class="filters">
+  <input type="search" name="q" value="{{ q }}" placeholder="название или компания…">
+  <select name="source">
+    <option value="">все источники</option>
+    {% for s in sources %}<option value="{{ s }}" {{ 'selected' if s == source }}>{{ s }}</option>{% endfor %}
+  </select>
+  <label><input type="checkbox" name="all_states" value="1" {{ 'checked' if all_states }}> включая скрытые/архив/скрытых работодателей</label>
+  <button>Фильтр</button>
+</form>
+<table>
+  <thead><tr><th>ID</th><th>Вакансия</th><th>Компания</th><th>Зарплата</th><th>Формат</th><th>Дата</th><th>Источник</th><th>Статус</th></tr></thead>
+  <tbody>
+  {% for r in records %}
+  <tr>
+    <td>{{ r.id }}</td>
+    <td><a href="/vacancies/{{ r.id }}">{{ r.title }}</a></td>
+    <td>{{ r.employer }}</td>
+    <td>{{ r.salary }}</td>
+    <td>{{ r.remote }}</td>
+    <td>{{ r.published }}</td>
+    <td>{{ r.source }}</td>
+    <td>{{ status_ru(r.status) }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if pages > 1 %}
+<p class="pages">
+{% if page > 1 %}<a href="?q={{ q }}&source={{ source }}&all_states={{ all_states }}&page={{ page - 1 }}">← назад</a>{% endif %}
+  стр. {{ page }}/{{ pages }}
+{% if page < pages %}<a href="?q={{ q }}&source={{ source }}&all_states={{ all_states }}&page={{ page + 1 }}">вперёд →</a>{% endif %}
+</p>
+{% endif %}
+{% endblock %}

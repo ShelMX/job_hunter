@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Дайджест · Job Hunter{% endblock %}
+{% block content %}
+<h1>Дайджест: свежее за {{ days }} дн. ({{ total_today }} шт. · в базе {{ total_in_base }})</h1>
+<p class="muted">Источники: {% for name, n in sources %}{{ name }}: {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+<form method="get" class="filters">
+  <label>Дней свежести: <input type="number" name="days" value="{{ days }}" min="1" max="30" style="width:5em"></label>
+  <button>Показать</button>
+</form>
+{% if not has_profile %}
+<p class="flash">Профиль не задан — триаж не работает. Создайте профиль, чтобы фильтровать шум.</p>
+{% endif %}
+{% if not rows %}
+<p>Новых вакансий за период нет. Загляните во <a href="/vacancies">всю базу</a>.</p>
+{% endif %}
+<table>
+  <thead><tr><th>Балл</th><th>Вакансия</th><th>Компания</th><th>Зарплата</th><th>Источник</th><th>Действия</th></tr></thead>
+  <tbody>
+  {% for item in rows %}
+  <tr>
+    <td><span class="score {{ 'good' if item.a.total >= 60 else 'mid' if item.a.total >= 40 else 'low' }}">{{ item.a.total }}</span></td>
+    <td>
+      <a href="/vacancies/{{ item.row.id }}"><strong>{{ item.row.title }}</strong></a>
+      {% if item.a.signals | selectattr('name', 'equalto', 'llm_fit') | list %}<span title="{% for s in item.a.signals if s.name == 'llm_fit' %}{{ s.reason }}{% endfor %}">🤖</span>{% endif %}
+      <br><span class="muted">{{ item.row.remote }} · {{ item.row.seniority }} · {{ item.row.published }}</span>
+    </td>
+    <td>{{ item.row.employer }}</td>
+    <td>{{ item.row.salary }}</td>
+    <td>{{ item.row.source }}</td>
+    <td class="actions">
+      <form method="post" action="/vacancies/{{ item.row.id }}/status">
+        <input type="hidden" name="status" value="interested"><input type="hidden" name="next" value="/?days={{ days }}">
+        <button title="Интересно">✨</button>
+      </form>
+      <form method="post" action="/vacancies/{{ item.row.id }}/status">
+        <input type="hidden" name="status" value="applied"><input type="hidden" name="next" value="/?days={{ days }}">
+        <button title="Откликнулся">📨</button>
+      </form>
+      <form method="post" action="/vacancies/{{ item.row.id }}/status">
+        <input type="hidden" name="status" value="hidden"><input type="hidden" name="next" value="/?days={{ days }}">
+        <button title="Скрыть">🙈</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if reports %}
+<h2>Последние md-отчёты</h2>
+<ul>{% for rep in reports %}<li><a href="/reports/{{ rep.name }}">{{ rep.name }}</a></li>{% endfor %}</ul>
+{% endif %}
+{% endblock %}

@@ -22,3 +22,10 @@ llm:
     unload_after_batch: true   # Ollama: выгрузка задействованных моделей после батча
     min_free_ram_gb: 8         # свободно меньше — деградация к меньшей модели
     lmstudio_unload_via_cli: true  # `lms unload` после батча (auto-unload 1 мин уже настроен в LM Studio)
+
+# Фоновой планировщик в web-процессе (см. docs/UI_SCENARIOS.md)
+scheduler:
+  enabled: true
+  fetch_times: ["09:00", "18:00"]   # локальное время; сбор по пресетам профиля
+  triage_after_fetch: true           # после сбора — LLM-триаж свежих (если LLM доступна)
+  triage_pool_limit: 40

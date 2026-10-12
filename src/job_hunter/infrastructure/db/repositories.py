@@ -4,7 +4,6 @@ import hashlib
 import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
-
 from typing import Any
 
 from sqlalchemy import Select, func, select
@@ -18,8 +17,15 @@ from job_hunter.domain.models import (
     Salary,
     Vacancy,
     VacancyRecord,
+    VacancyState,
+    VacancyStatus,
 )
-from job_hunter.infrastructure.db.orm import LLMCacheRow, VacancyRow
+from job_hunter.infrastructure.db.orm import (
+    HiddenEmployerRow,
+    LLMCacheRow,
+    VacancyRow,
+    VacancyStateRow,
+)
 
 
 class SqlVacancyRepository:
@@ -49,16 +55,12 @@ class SqlVacancyRepository:
         return self._to_record(row) if row else None
 
     @staticmethod
-    def _with_filters(
-        stmt: Select[Any], *, source: str | None, query: str | None
-    ) -> Select[Any]:
+    def _with_filters(stmt: Select[Any], *, source: str | None, query: str | None) -> Select[Any]:
         if source:
             stmt = stmt.where(VacancyRow.source == source)
         if query:
             like = f"%{query}%"
-            stmt = stmt.where(
-                VacancyRow.title.ilike(like) | VacancyRow.employer_name.ilike(like)
-            )
+            stmt = stmt.where(VacancyRow.title.ilike(like) | VacancyRow.employer_name.ilike(like))
         return stmt
 
     def list_recent(
@@ -78,9 +80,7 @@ class SqlVacancyRepository:
         return [self._to_record(row) for row in self._session.execute(stmt).scalars()]
 
     def count(self, *, source: str | None = None, query: str | None = None) -> int:
-        stmt = self._with_filters(
-            select(func.count()).select_from(VacancyRow), source=source, query=query
-        )
+        stmt = self._with_filters(select(func.count()).select_from(VacancyRow), source=source, query=query)
         return int(self._session.execute(stmt).scalar_one())
 
     # --- mapping ---------------------------------------------------------
@@ -189,3 +189,74 @@ class SqlLlmCacheRepository:
             .on_conflict_do_nothing()
         )
         self._session.execute(stmt)
+
+
+class SqlStateRepository:
+    """Реализация StateRepository поверх SQLAlchemy (vacancy_states + hidden_employers)."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def set_status(
+        self,
+        record_id: int,
+        status: VacancyStatus,
+        *,
+        applied_at: datetime | None = None,
+        now: datetime | None = None,
+    ) -> None:
+        moment = now or datetime.now(UTC)
+        row = self._session.get(VacancyStateRow, record_id)
+        if row is None:
+            row = VacancyStateRow(record_id=record_id, status=status.value, updated_at=moment)
+            self._session.add(row)
+        else:
+            row.status = status.value
+            row.updated_at = moment
+        if applied_at is not None:
+            row.applied_at = applied_at
+        self._session.flush()
+
+    def set_note(self, record_id: int, note: str | None, *, now: datetime | None = None) -> None:
+        row = self._session.get(VacancyStateRow, record_id)
+        moment = now or datetime.now(UTC)
+        if row is None:
+            row = VacancyStateRow(record_id=record_id, status=VacancyStatus.NEW.value, updated_at=moment)
+            self._session.add(row)
+        row.note = note
+        row.updated_at = moment
+        self._session.flush()
+
+    def states(self) -> dict[int, VacancyState]:
+        out: dict[int, VacancyState] = {}
+        for row in self._session.execute(select(VacancyStateRow)).scalars():
+            out[row.record_id] = VacancyState(
+                record_id=row.record_id,
+                status=VacancyStatus(row.status),
+                note=row.note,
+                applied_at=_aware(row.applied_at),
+                updated_at=_aware(row.updated_at),
+            )
+        return out
+
+    def hide_employer(self, name: str, *, now: datetime | None = None) -> None:
+        stmt = (
+            sqlite_insert(HiddenEmployerRow)
+            .values(employer_name=name, created_at=now or datetime.now(UTC))
+            .on_conflict_do_nothing()
+        )
+        self._session.execute(stmt)
+
+    def unhide_employer(self, name: str) -> None:
+        row = self._session.get(HiddenEmployerRow, name)
+        if row is not None:
+            self._session.delete(row)
+
+    def hidden_employers(self) -> set[str]:
+        return {row.employer_name for row in self._session.execute(select(HiddenEmployerRow)).scalars()}
+
+
+def _aware(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value

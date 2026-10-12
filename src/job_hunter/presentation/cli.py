@@ -504,5 +504,29 @@ def clusters(verbose: VerboseOption = False) -> None:
     ctx.close()
 
 
+@app.command("web")
+def web_ui(
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 8777,
+    no_scheduler: Annotated[bool, typer.Option("--no-scheduler", help="Без фоновых сборов")] = False,
+    verbose: VerboseOption = False,
+) -> None:
+    """Локальный web UI: дайджест, вакансии, воронка, кластеры, отчёты. Только localhost."""
+    import uvicorn
+
+    from job_hunter.infrastructure.scheduler import start_scheduler
+    from job_hunter.presentation.web.app import create_app
+
+    ctx = _prepare(verbose)
+    scheduler = None if no_scheduler else start_scheduler(ctx)
+    console.print(f"[green]UI:[/green] http://{host}:{port}  (дайджест — '/'; выход: Ctrl+C)")
+    try:
+        uvicorn.run(create_app(ctx), host=host, port=port, log_level="info" if verbose else "warning")
+    finally:
+        if scheduler:
+            scheduler.shutdown(wait=False)
+        ctx.close()
+
+
 def main() -> None:
     app()

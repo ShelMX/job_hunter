@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ record.title }} · Job Hunter{% endblock %}
+{% block content %}
+<h1>{{ record.title }}</h1>
+<p>
+  <strong>{{ record.employer }}</strong> · {{ record.locations }} · {{ record.remote }} ·
+  {{ record.seniority }} · {{ record.salary }} · источник {{ record.source }} ·
+  опубликована {{ record.published }}
+  · <a href="{{ record.url }}" target="_blank" rel="noopener">открыть на сайте ↗</a>
+</p>
+<p>Статус: <strong>{{ status_ru[record.status] }}</strong>{% if record.applied_at %} · отклик {{ record.applied_at }}{% endif %}</p>
+
+<div class="actions-bar">
+  <form method="post" action="/vacancies/{{ record.id }}/status">
+    <select name="status">
+      {% for s in statuses %}<option value="{{ s.value }}" {{ 'selected' if s.value == record.status }}>{{ status_ru[s.value] }}</option>{% endfor %}
+    </select>
+    <button>Поставить статус</button>
+  </form>
+  {% if record.status != 'applied' %}
+  <form method="post" action="/vacancies/{{ record.id }}/status">
+    <input type="hidden" name="status" value="applied">
+    <button>📨 Откликнулся сегодня</button>
+  </form>
+  {% endif %}
+  <form method="post" action="/vacancies/{{ record.id }}/analyze">
+    <button>🤖 Проанализировать LLM</button>
+  </form>
+  {% if not is_hidden_employer %}
+  <form method="post" action="/employers/hide" onsubmit="return confirm('Скрыть работодателя «{{ record.employer }}» из всех выдач?')">
+    <input type="hidden" name="name" value="{{ record.employer }}">
+    <button class="danger">🙈 Скрыть работодателя</button>
+  </form>
+  {% endif %}
+</div>
+
+<section>
+  <h2>Аналитика по вакансии</h2>
+  <ul class="analytics">
+    <li>Открыта: <strong>{{ analytics.age_days }} дн.</strong>{% if analytics.posting_lag_days is not none and analytics.posting_lag_days > 3 %} <span class="warn">(мы увидели её на {{ analytics.posting_lag_days }} дн. после даты публикации — возможен перепост)</span>{% endif %}</li>
+    <li>В нашем наблюдении: {{ analytics.seen_span_days }} дн., встречалась {{ analytics.times_seen }}×</li>
+    <li>Группа такой же/смежной позиции: <strong>{{ analytics.cluster_size }} объявл.</strong>{% if analytics.cluster_size > 1 %} — перепосты или пул ролей{% endif %}</li>
+    <li>У работодателя в наблюдении вакансий: {{ analytics.employer_open_vacancies }}</li>
+  </ul>
+  <h3>Работодатель: {{ employer.name }}</h3>
+  <ul class="analytics">
+    <li>Всего вакансий в базе: {{ employer.vacancies_total }}</li>
+    <li>Групп дублей/перепостов: {{ employer.duplicate_groups }}</li>
+    <li>Доля «вечных» вакансий: {{ '%.0f' % (employer.evergreen_share * 100) }}%</li>
+  </ul>
+</section>
+
+{% if assessment %}
+<section>
+  <h2>Оценка: {{ assessment.total }} / 100</h2>
+  <ul class="signals">
+  {% for s in assessment.signals %}
+    <li class="{{ 'penalty' if s.points < 0 else 'bonus' if s.points > 0 else 'info' }}">
+      {{ '%+.1f' % s.points }} — {{ s.reason }}
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section>
+  <h2>Описание</h2>
+  <pre class="description">{{ record.description or '—' }}</pre>
+  {% if record.skills != '—' %}<p><strong>Навыки:</strong> {{ record.skills }}</p>{% endif %}
+</section>
+
+<section>
+  <h2>Заметка</h2>
+  <form method="post" action="/vacancies/{{ record.id }}/note" class="note-form">
+    <textarea name="note" rows="3" placeholder="контакты, впечатления, договорённости…">{{ record.note or '' }}</textarea>
+    <button>Сохранить заметку</button>
+  </form>
+</section>
+{% endblock %}

@@ -24,6 +24,8 @@ dependencies = [
     "fastapi>=0.115",    # MIT — web-слой (M3)
     "uvicorn>=0.30",     # BSD-3 — ASGI-сервер
     "jinja2>=3.1",       # BSD-3 — шаблоны с автоэскейпингом
+    "apscheduler>=3.11", # MIT — фоновой планировщик сборов в web-процессе
+    "python-multipart>=0.0.9",  # Apache-2.0 — парсинг POST-форм FastAPI
 ]
 
 [project.scripts]
@@ -70,7 +72,7 @@ module = ["tests.*"]
 disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
-module = ["feedparser.*"]
+module = ["feedparser.*", "apscheduler.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

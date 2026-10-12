@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Кластеры · Job Hunter{% endblock %}
+{% block content %}
+<h1>Кластеры смежных ролей и перепостов</h1>
+<p class="muted">Группы объявлений одной позиции/пула у одного работодателя (порог сходства {{ threshold }}).</p>
+{% for g in groups %}
+<section class="cluster">
+  <h3>{{ g.canonical.employer }}: {{ g.canonical.title }} <span class="muted">({{ g.size }} объявл., сходство ≥ {{ '%.0f' % g.similarity }})</span></h3>
+  <ul>
+  {% for m in g.members %}
+    <li><a href="/vacancies/{{ m.id }}">#{{ m.id }} · {{ m.title }}</a> · {{ m.source }} · {{ m.published }}</li>
+  {% endfor %}
+  </ul>
+</section>
+{% else %}
+<p>Кластеров не найдено.</p>
+{% endfor %}
+{% endblock %}
