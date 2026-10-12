@@ -1,6 +1,6 @@
 [project]
 name = "job-hunter"
-version = "0.3.0"
+version = "0.3.1"
 description = "Personal job-hunting assistant: multi-source vacancy ingestion, analysis and profile-based ranking"
 readme = "README.md"
 requires-python = ">=3.12"

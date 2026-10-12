@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Дайджест · Job Hunter{% endblock %}
 {% block content %}
-<h1>Дайджест: свежее за {{ days }} дн. ({{ total_today }} шт. · в базе {{ total_in_base }})</h1>
+<h1>Дайджест: свежее за {{ days }} дн. (показано {{ rows | length }} из {{ total_today }} · в базе {{ total_in_base }})</h1>
+{% if unvetted_count > 0 %}
+<p class="muted">Скрыто непроверенных триажем: {{ unvetted_count }} — <a href="/?days={{ days }}&unvetted=1">показать и их</a> (триаж: <code>job-hunter triage</code> или планировщик)</p>
+{% endif %}
 <p class="muted">Источники: {% for name, n in sources %}{{ name }}: {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
 <form method="get" class="filters">
   <label>Дней свежести: <input type="number" name="days" value="{{ days }}" min="1" max="30" style="width:5em"></label>
@@ -22,6 +25,8 @@
     <td>
       <a href="/vacancies/{{ item.row.id }}"><strong>{{ item.row.title }}</strong></a>
       {% if item.a.signals | selectattr('name', 'equalto', 'llm_fit') | list %}<span title="{% for s in item.a.signals if s.name == 'llm_fit' %}{{ s.reason }}{% endfor %}">🤖</span>{% endif %}
+      {% if has_profile and item.triage is none %}<span title="ещё не прошла LLM-триаж (триажир. по расписанию планировщика)">⏳</span>{% endif %}
+      {% if item.triage == 'keep' %}<span title="профиль: подходит (LLM-триаж)">✅</span>{% endif %}
       <br><span class="muted">{{ item.row.remote }} · {{ item.row.seniority }} · {{ item.row.published }}</span>
     </td>
     <td>{{ item.row.employer }}</td>

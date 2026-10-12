@@ -21,6 +21,7 @@ from job_hunter.application.analyze import Assessment, VacancyAnalyzer
 from job_hunter.application.dedup import find_duplicate_clusters
 from job_hunter.application.digest import select_digest
 from job_hunter.application.employers import compute_vacancy_analytics, employer_stats
+from job_hunter.application.llm_pipeline import _key as _key_llm
 from job_hunter.application.llm_pipeline import enrich_one
 from job_hunter.application.ranking import assemble_from_cache
 from job_hunter.bootstrap import AppContext
@@ -120,9 +121,26 @@ def _register(app: FastAPI, ctx: AppContext, templates: Jinja2Templates) -> None
         records, states, hidden = _all_records()
         fresh = select_digest(records, states, hidden, days=days)
         rows = _ranked(fresh, profile=profile, cfg=cfg)
+        with _session() as session:
+            cache = SqlLlmCacheRepository(session)
+            triage_state = {r.id: cache.get(_key_llm("triage", r.content_hash)) for r, _ in rows}
         digest_rows = [
-            {"row": _record_view(r), "a": a, "state": states.get(r.id)} for r, a in rows if not a.rejected
+            {
+                "row": _record_view(r),
+                "a": a,
+                "state": states.get(r.id),
+                "triage": triage_state.get(r.id),  # None = ещё не проверена LLM-триажем
+            }
+            for r, a in rows
+            if not a.rejected
         ]
+        # сценарий-дайджест: по умолчанию показываем только проверенные триажем (keep)
+        show_unvetted = bool(request.query_params.get("unvetted"))
+        if profile is not None and not show_unvetted:
+            unvetted_count = sum(1 for d in digest_rows if d["triage"] is None)
+            digest_rows = [d for d in digest_rows if d["triage"] == "keep"]
+        else:
+            unvetted_count = 0
         with _session() as session:
             repo = SqlVacancyRepository(session)
             sources = [
@@ -137,6 +155,7 @@ def _register(app: FastAPI, ctx: AppContext, templates: Jinja2Templates) -> None
                 "rows": digest_rows,
                 "days": days,
                 "total_today": len(fresh),
+                "unvetted_count": unvetted_count,
                 "total_in_base": sum(n for _, n in sources),
                 "sources": sources,
                 "has_profile": profile is not None,
@@ -247,18 +266,35 @@ def _register(app: FastAPI, ctx: AppContext, templates: Jinja2Templates) -> None
     @app.get("/clusters", response_class=HTMLResponse)
     def clusters_page(request: Request) -> HTMLResponse:
         cfg = load_scoring_config(settings.config_dir)
-        records, _, _ = _all_records()
-        groups = find_duplicate_clusters(records, similarity_threshold=cfg.cluster_similarity)
+        profile = load_profile(settings.config_dir)
+        records, states, hidden = _all_records()
         by_id = {r.id: r for r in records}
-        view: list[dict[str, Any]] = [
-            {
-                "size": len(g.record_ids),
-                "similarity": g.min_similarity,
-                "canonical": _record_view(by_id[g.canonical_id]),
-                "members": [_record_view(by_id[rid]) for rid in g.record_ids],
-            }
-            for g in groups
-        ]
+        groups = find_duplicate_clusters(records, similarity_threshold=cfg.cluster_similarity)
+        hidden_norm = {name.strip().lower() for name in hidden}
+
+        with _session() as session:
+            cache = SqlLlmCacheRepository(session)
+
+            def visible(rid: int) -> bool:
+                rec = by_id[rid]
+                state = states.get(rid)
+                if state and state.status in (VacancyStatus.HIDDEN, VacancyStatus.ARCHIVED):
+                    return False
+                if rec.vacancy.employer.name.strip().lower() in hidden_norm:
+                    return False
+                # с профилем: триаж-drop прячем, непроверенное оставляем
+                return not (profile is not None and cache.get(_key_llm("triage", rec.content_hash)) == "drop")
+
+            view: list[dict[str, Any]] = [
+                {
+                    "size": len(g.record_ids),
+                    "similarity": g.min_similarity,
+                    "canonical": _record_view(by_id[g.canonical_id]),
+                    "members": [_record_view(by_id[rid]) for rid in g.record_ids if visible(rid)],
+                }
+                for g in groups
+                if any(visible(rid) for rid in g.record_ids)
+            ]
         view.sort(key=lambda g: -g["size"])
         return templates.TemplateResponse(
             request, "clusters.html", {"groups": view, "threshold": cfg.cluster_similarity}

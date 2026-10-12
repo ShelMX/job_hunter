@@ -3,12 +3,12 @@
 Fail-open: при сбое/нечитаемом ответе вакансия СОХРАНЯЕТСЯ (шум лучше потерянной позиции).
 """
 
-import hashlib
 import logging
 from dataclasses import dataclass
 
 from job_hunter.application.analyze import Assessment
-from job_hunter.application.llm_extract import PROMPT_VERSION, _salary
+from job_hunter.application.llm_extract import _salary
+from job_hunter.application.llm_pipeline import _key as _cache_key
 from job_hunter.domain.models import VacancyRecord
 from job_hunter.domain.ports import LLMCache, LLMClient, LLMUnavailableError
 from job_hunter.domain.profile import CandidateProfile
@@ -75,7 +75,7 @@ def triage_batch(
     dropped = 0
     for pair in pairs:
         record = pair[0]
-        key = hashlib.sha256(f"triage|{PROMPT_VERSION}|{record.content_hash}".encode()).hexdigest()
+        key = _cache_key("triage", record.content_hash)
         cached = cache.get(key)
         if cached is not None:
             keep = cached == "keep"

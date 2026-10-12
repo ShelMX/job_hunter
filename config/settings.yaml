@@ -28,4 +28,4 @@ scheduler:
   enabled: true
   fetch_times: ["09:00", "18:00"]   # локальное время; сбор по пресетам профиля
   triage_after_fetch: true           # после сбора — LLM-триаж свежих (если LLM доступна)
-  triage_pool_limit: 40
+  triage_pool_limit: 300             # tev1 дешёвый (~1 с / решение) — покрываем весь дневной приток

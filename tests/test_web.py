@@ -95,6 +95,32 @@ def test_detail_404(web) -> None:
     assert client.get("/vacancies/9999").status_code == 404
 
 
+def test_digest_shows_only_triage_kept_when_profile(web, tmp_path, make_vacancy) -> None:
+    """Регрессия: ключ кэша триажа должен совпадать с читаемым в дайджесте (one-way)."""
+    # профиль есть → дайджест в режиме «только проверенные»
+    from job_hunter.domain.profile import CandidateProfile
+    from job_hunter.infrastructure.db.repositories import SqlLlmCacheRepository
+    from job_hunter.infrastructure.profile import save_profile
+
+    save_profile(tmp_path, CandidateProfile(desired_roles=("аналитик",)))
+
+    client, engine = web
+    # пишем триаж-кэши: аналитик keep, девопс drop
+    with session_scope(engine) as session:
+        repo = SqlVacancyRepository(session)
+        cache = SqlLlmCacheRepository(session)
+        for r in repo.list_recent():
+            verdict = "keep" if "Аналитик" in r.vacancy.title else "drop"
+            from job_hunter.application.llm_pipeline import _key
+
+            cache.set(_key("triage", r.content_hash), role="triage", model="fake", output=verdict)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "Аналитик данных" in resp.text  # keep виден
+    assert "Девопс" not in resp.text  # drop скрыт
+
+
 def test_xss_escaped(web, make_vacancy) -> None:
     client, engine = web  # engine — именно тот, что использует приложение (файловая БД теста)
     with session_scope(engine) as session:

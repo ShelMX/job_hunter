@@ -2,7 +2,7 @@
 
 import logging
 from contextlib import suppress
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -415,6 +415,49 @@ def _enrich_top_with_llm(
     enriched.sort(key=lambda pair: pair[1].total, reverse=True)
     vetted_not_enriched = survivors[n_enrich:]
     return enriched + vetted_not_enriched, dropped, len(rest)
+
+
+@app.command("triage")
+def triage_cmd(
+    days: Annotated[int, typer.Option("--days", help="Свежее за N дней")] = 1,
+    limit: Annotated[int, typer.Option("--limit", "-n", help="Пул триажа")] = 300,
+    verbose: VerboseOption = False,
+) -> None:
+    """LLM-триаж свежих непроверенных вакансий (decision-модель, fail-open, кэш)."""
+    from job_hunter.application.analyze import Assessment
+    from job_hunter.application.llm_pipeline import _key as _llm_key
+    from job_hunter.application.llm_triage import triage_batch
+
+    ctx = _prepare(verbose)
+    profile = load_profile(ctx.settings.config_dir)
+    if profile is None:
+        console.print("[red]Нет профиля[/red] — `job-hunter profile init`")
+        raise typer.Exit(code=1)
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+    with session_scope(ctx.engine) as session:
+        repo = SqlVacancyRepository(session)
+        cache = SqlLlmCacheRepository(session)
+        fresh = [
+            r
+            for r in repo.list_recent(limit=5000)
+            if r.first_seen_at >= cutoff and cache.get(_llm_key("triage", r.content_hash)) is None
+        ][:limit]
+        if not fresh:
+            console.print("Свежих непроверенных нет.")
+            ctx.close()
+            return
+        llm = build_llm(ctx.settings, ctx.http)
+        if llm is None:
+            console.print("[red]LLM недоступен[/red]")
+            raise typer.Exit(code=1)
+        pairs = [(r, Assessment(r.id, 0.0, False, (), ())) for r in fresh]
+        try:
+            _, dropped = triage_batch(pairs, llm=llm, cache=cache, profile=profile)
+        finally:
+            if ctx.settings.llm.resource_policy.unload_after_batch:
+                llm.unload_used()
+    console.print(f"[green]OK[/green] триаж: {len(fresh)} шт., отсеяно {dropped}")
+    ctx.close()
 
 
 @app.command("llm")
